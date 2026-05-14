@@ -6,7 +6,6 @@ import time
 from utils.paths import resource_path
 
 
-
 class PetWidget(QLabel):
     # 发射点击信号
     clicked = pyqtSignal()
@@ -25,41 +24,68 @@ class PetWidget(QLabel):
         self._press_time = 0
         self._click_canceled = False
         self._drag_offset = None
+
         self._base_size = QSize(128, 128)
-        self.movie = None
+        self.current_scale = 1.0  # 初始化缩放比例
+
+        self._movie = None
         self._load_gif()
 
     def _load_gif(self):
         gif_path = resource_path("assets", "cat.gif")
 
         if os.path.exists(gif_path):
-            self.movie = QMovie(gif_path)
-            self.setMovie(self.movie)
-            self.movie.start()
-            self.movie.jumpToFrame(0)
+            self._movie = QMovie(gif_path)
+            self.setMovie(self._movie)
+            self._movie.start()
+            self._movie.jumpToFrame(0)
 
-            self._base_size = self.movie.currentImage().size()
+            self._base_size = self._movie.currentImage().size()
             self.resize(self._base_size)
-
         else:
             print("GIF不存在:", gif_path)
-
             pixmap = QPixmap(self._base_size)
             pixmap.fill(QColor(200, 200, 200, 150))
             self.setPixmap(pixmap)
             self.resize(self._base_size)
 
     def get_first_frame(self):
-        if self.movie and self.movie.isValid():
-            self.movie.jumpToFrame(0)
-            return QIcon(self.movie.currentPixmap())
-        return QIcon()  # 没加载成功返回空图标
+        if self._movie and self._movie.isValid():
+            self._movie.jumpToFrame(0)
+            return QIcon(self._movie.currentPixmap())
+        return QIcon()
 
     def set_scale(self, scale):
-        new_size = QSize(int(self._base_size.width() * scale), int(self._base_size.height() * scale))
-        if self.movie:
-            self.movie.setScaledSize(new_size)
-        self.resize(new_size)
+        """原地缩放"""
+        # 如果 _base_size 不存在才 return
+        if not self._base_size:
+            return
+
+        # 记录缩放前的锚点 (当前窗口的底边中点)
+        rect = self.geometry()
+        anchor_x = rect.x() + rect.width() // 2
+        anchor_y = rect.y() + rect.height()
+
+        # 计算新尺寸
+        self.current_scale = scale
+        new_w = int(self._base_size.width() * scale)
+        new_h = int(self._base_size.height() * scale)
+
+        # 逆推新左上角坐标
+        new_x = anchor_x - (new_w // 2)
+        new_y = anchor_y - new_h
+
+        # 设置新坐标和尺寸
+        self.setGeometry(new_x, new_y, new_w, new_h)
+
+        # 更新 GIF 尺寸
+        if self._movie:
+            self._movie.setScaledSize(self.size())
+            # 防止缩放导致 GIF 停顿，强行恢复播放状态
+            if self._movie.state() != QMovie.Running:
+                self._movie.start()
+
+        self.geometry_changed.emit()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
