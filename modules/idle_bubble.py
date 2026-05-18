@@ -28,8 +28,21 @@ class IdleBubbleModule(BaseModule):
 
     def _trigger_speech(self):
         """执行说话，并安排下一轮计时"""
-        quote = self.api.get_random_quote("idle_quotes.txt")
+        quote = self.api.get_random_quote("idle") 
+        
         duration = self.config.get("bubble_duration_sec", 3)
+
+        # 弹出待机气泡
+        self.api.show_bubble(
+            text=quote,
+            source="idle_speech",
+            priority=1,  # BubblePriority.IDLE
+            duration=duration
+        )
+
+        # 气泡彻底消失才开始计时
+        next_interval = (duration + self.config.get("bubble_idle_sec", 10)) * 1000
+        self.cycle_timer.start(next_interval)
 
         # 弹出待机气泡
         self.api.show_bubble(
@@ -44,7 +57,6 @@ class IdleBubbleModule(BaseModule):
         next_interval = (duration + self.config.get("bubble_idle_sec", 10)) * 1000
         self.cycle_timer.start(next_interval)
 
-        # 修改 modules/idle_bubble.py 的最后一个方法：
         def reset_timer_only(self):
             """响应外部打断操作，重置倒计时"""
             try:

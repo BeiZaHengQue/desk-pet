@@ -1,63 +1,65 @@
 from PyQt5.QtWidgets import QLabel, QApplication
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import QMovie, QPixmap, QColor, QIcon
-import os
+from PyQt5.QtCore import Qt, pyqtSignal, QSize, QPoint
+from PyQt5.QtGui import QMovie, QIcon
 import time
-from utils.paths import resource_path
-
+from utils.resource_manager import ResourceManager
 
 class PetWidget(QLabel):
-    # 发射点击信号
+    geometry_changed = pyqtSignal()
     clicked = pyqtSignal()
     drag_finished = pyqtSignal()
-    geometry_changed = pyqtSignal()
 
     def __init__(self):
         super().__init__()
-        # 窗口基础属性控制，防止被覆盖消失
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setCursor(Qt.PointingHandCursor)
 
+        self._movie = None
+        self._base_size = None
+        self.current_scale = 1.0
+        
+        # 显式初始化拖拽状态
         self._is_dragging = False
-        self._press_pos = None
+        self._press_pos = QPoint()
+        self._drag_offset = QPoint()
         self._press_time = 0
         self._click_canceled = False
-        self._drag_offset = None
-
-        self._base_size = QSize(128, 128)
-        self.current_scale = 1.0  # 初始化缩放比例
-
-        self._movie = None
-        self._load_gif()
-
-    def _load_gif(self):
-        gif_path = resource_path("assets", "cat.gif")
-
-        if os.path.exists(gif_path):
-            self._movie = QMovie(gif_path)
-            self.setMovie(self._movie)
-            self._movie.start()
-            self._movie.jumpToFrame(0)
-
-            self._base_size = self._movie.currentImage().size()
-            self.resize(self._base_size)
-        else:
-            print("GIF不存在:", gif_path)
-            pixmap = QPixmap(self._base_size)
-            pixmap.fill(QColor(200, 200, 200, 150))
-            self.setPixmap(pixmap)
-            self.resize(self._base_size)
+        
+        # 启动默认场景
+        self.switch_scene("idle")
 
     def get_first_frame(self):
+        """获取当前 GIF 的第一帧作为图标"""
         if self._movie and self._movie.isValid():
             self._movie.jumpToFrame(0)
-            return QIcon(self._movie.currentPixmap())
+            pixmap = self._movie.currentPixmap()
+            if pixmap.isNull():
+                return QIcon()
+            return QIcon(pixmap)
         return QIcon()
+
+    def switch_scene(self, scene_name):
+        """一键切换 GIF 场景"""
+        gif_path = ResourceManager.get_host_gif(scene_name)
+        if not gif_path:
+            return
+
+        if self._movie:
+            self._movie.stop()
+
+        # 加载新 GIF
+        self._movie = QMovie(gif_path)
+        self.setMovie(self._movie)
+        
+        # 预读第一帧获取原始尺寸
+        self._movie.jumpToFrame(0)
+        self._base_size = self._movie.currentImage().size()
+ 
+        self.set_scale(self.current_scale)
 
     def set_scale(self, scale):
         """原地缩放"""
-        # 如果 _base_size 不存在才 return
         if not self._base_size:
             return
 

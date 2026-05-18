@@ -97,8 +97,12 @@ class PetEngine:
 
     def _on_pet_clicked(self):
         """响应点击事件"""
-        # 弹出互动气泡
-        quote = self.api.get_random_quote("click_quotes.txt")
+        # 切换到互动的 GIF 动作
+        self.pet_widget.switch_scene("interact")
+
+        # 映射
+        quote = self.api.get_random_quote("interact")
+        
         self.api.show_bubble(
             text=quote,
             source="user_click",
@@ -108,10 +112,9 @@ class PetEngine:
 
         # 通知模块管理器重置待机说话的计时器
         for module in self.module_manager.modules:
-            # 只有 IdleBubbleModule 才有 reset_timer_only 方法
             if hasattr(module, "reset_timer_only") and self.config.get("idle_text"):
                 module.reset_timer_only()
-
+                
     def _on_config_changed(self):
         c = self.config.get_all()
 
@@ -151,24 +154,24 @@ class PetEngine:
             return
 
         # 有气泡正在显示
-        # 同触发源 -> 直接覆盖当前
+        # 同触发源直接覆盖
         if msg.source == self.current_bubble_msg.source:
             self._force_close_current()
             self._render_bubble(msg)
             return
 
-        # 优先级高于当前 -> 直接覆盖当前
+        # 优先级高于当前则直接覆盖
         if msg.priority > self.current_bubble_msg.priority:
             self._force_close_current()  # 被覆盖的气泡直接抛弃
             self._render_bubble(msg)
             return
 
-        # 优先级 <= 当前 -> 入队排队
+        # 优先级小于等于当前则入队排队
         self._enqueue_bubble(msg)
 
     def _enqueue_bubble(self, msg: BubbleMsg):
         """入队逻辑与队列同源去重"""
-        # 去重,如果队列里已经有同源请求，替换成最新的
+        # 如果队列里已经有同源请求，替换成最新的
         for i, existing_msg in enumerate(self.bubble_queue):
             if existing_msg.source == msg.source:
                 self.bubble_queue[i] = msg
@@ -191,7 +194,7 @@ class PetEngine:
             self.bubble_timer.start(msg.duration * 1000)
 
         except Exception as e:
-            # 有逆天神人搞事导致界面渲染崩溃，立刻启动销毁，避免幽灵气泡霸占队列
+            # 界面渲染崩溃，立刻启动销毁，避免幽灵气泡霸占队列
             print(f"气泡渲染遇到冲突拦截: {e}")
             self._force_close_current()
             self._process_next_bubble()  # 释放队列
@@ -228,6 +231,9 @@ class PetEngine:
         if self.bubble_queue:
             next_msg = self.bubble_queue.pop(0)
             self._render_bubble(next_msg)
+        else:
+            # 气泡队列排空，说明当前没有话要说了，动作切回待机
+            self.pet_widget.switch_scene("idle")
 
     def _reset_move_timer(self):
         self._stop_all_move()

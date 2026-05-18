@@ -39,18 +39,24 @@ class PetAPI:
         except Exception:
             return 0
 
-    def get_random_quote(self, filename):
+    def get_random_quote(self,text_type):
+        """
+        text_type: "idle" 或 "interact"
+        """
         try:
-            file_path = resource_path("assets", filename)
+            from utils.resource_manager import ResourceManager
+
+            # 拿到由 ResourceManager 处理过后的绝对路径
+            file_path = ResourceManager.get_soul_text(text_type)
 
             if not os.path.exists(file_path):
-                return f"文件不存在: {file_path}"
-
+                return "我的文件怎么找不到了，我不知道要说啥了"
+            
             with open(file_path, "r", encoding="utf-8") as f:
                 quotes = [line.strip() for line in f if line.strip()]
-
-            return random.choice(quotes) if quotes else "突然忘记我要说啥了"
-
+           
+            return random.choice(quotes) if quotes else "（脑子一片空白，发呆中...）"
+        
         except Exception as e:
             print(f"读取文案失败: {e}")
-            return "（别吵，我在烧烤...）"
+            return "（别吵，有未知异常，我在烧烤...）"
