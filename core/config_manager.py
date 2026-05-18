@@ -2,6 +2,7 @@ import sys
 import json
 import os
 from PyQt5.QtCore import QObject, pyqtSignal
+from utils.paths import resource_path
 
 
 class ConfigManager(QObject):
@@ -18,7 +19,6 @@ class ConfigManager(QObject):
         "move_idle_sec": 60,
         "move_speed": 5,
         "idle_text": True,
-        "bubble_idle_sec": 60,
         "bubble_duration_sec": 3,
         "hourly": False,
         "half_hourly": False
@@ -31,12 +31,12 @@ class ConfigManager(QObject):
         return cls._instance
 
     def __init__(self):
-        # 获取程序运行的根目录
-        base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-        self.CONFIG_FILE = os.path.join(base_dir, "config.json")
         if self.__initialized:
             return
         super().__init__()
+        
+        self.CONFIG_FILE = resource_path("config.json")
+        
         self._config = {}
         # 初始化顺序：先尝试从本地加载，失败则使用默认并保存
         self._load_from_json()
@@ -48,7 +48,7 @@ class ConfigManager(QObject):
             try:
                 with open(self.CONFIG_FILE, "r", encoding="utf-8") as f:
                     loaded_data = json.load(f)
-                    # 使用默认配置做兜底，防止 JSON 缺少某些新增加的键
+                    # 使用默认配置兜底，防止 JSON 缺少某些新增加的键
                     self._config = self.DEFAULT_CONFIG.copy()
                     self._config.update(loaded_data)
             except Exception as e:

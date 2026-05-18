@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QCheckBox,
                              QSlider, QSpinBox, QPushButton, QGroupBox,
-                             QMessageBox, QFormLayout, QLabel)
+                             QMessageBox, QLabel, QTabWidget)
 from PyQt5.QtCore import Qt
 
 
@@ -9,7 +9,7 @@ class ControlPanel(QWidget):
         super().__init__()
         self.config = config_manager
         self.setWindowTitle("桌宠控制面板")
-        self.setFixedSize(360, 480)
+        self.setFixedSize(380, 520)
         self.setup_ui()
         self.sync_from_config()
 
@@ -19,97 +19,166 @@ class ControlPanel(QWidget):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(12)
 
-        # --- 基础设置区 ---
+        # 基础设置区
         group_basic = QGroupBox("基础设置")
         group_basic.setStyleSheet("QGroupBox { font-weight: bold; font-family: 'Microsoft YaHei'; }")
-        layout_basic = QFormLayout(group_basic)
+        layout_basic = QHBoxLayout(group_basic)
+        layout_basic.setContentsMargins(10, 15, 10, 15)
+        layout_basic.setSpacing(15)
 
         self.chk_top = QCheckBox("桌宠置顶")
-        self.chk_move = QCheckBox("待机移动")
-        self.chk_idle_text = QCheckBox("待机说话")
+        self.chk_move = QCheckBox("自主走动")
+        self.chk_idle_text = QCheckBox("无聊说话")
 
-        # 透明度布局
-        self.slider_opacity = QSlider(Qt.Horizontal)
-        self.slider_opacity.setRange(0, 100)
-        self.lbl_opacity_val = QLabel("100%")
-        h_layout_op = QHBoxLayout()
-        h_layout_op.addWidget(self.slider_opacity)
-        h_layout_op.addWidget(self.lbl_opacity_val)
+        #复选框移到文字右边
+        self.chk_top.setLayoutDirection(Qt.RightToLeft)
+        self.chk_move.setLayoutDirection(Qt.RightToLeft)
+        self.chk_idle_text.setLayoutDirection(Qt.RightToLeft)
 
-        # 缩放布局
-        self.slider_scale = QSlider(Qt.Horizontal)
-        self.slider_scale.setRange(0, 500)
-        self.lbl_scale_val = QLabel("100%")
-        h_layout_sc = QHBoxLayout()
-        h_layout_sc.addWidget(self.slider_scale)
-        h_layout_sc.addWidget(self.lbl_scale_val)
-
-        # 数值标签布局
-        layout_basic.addRow("透明度:", h_layout_op)
-        layout_basic.addRow("大小缩放:", h_layout_sc)
-        layout_basic.addRow("置顶:", self.chk_top)
-        layout_basic.addRow("移动:", self.chk_move)
-        layout_basic.addRow("说话:", self.chk_idle_text)
+        layout_basic.addWidget(self.chk_top)
+        layout_basic.addWidget(self.chk_move)
+        layout_basic.addWidget(self.chk_idle_text)
         main_layout.addWidget(group_basic)
 
-        # --- 参数设置区 ---
+        # 参数设置区
         group_param = QGroupBox("参数设置")
-        layout_param = QFormLayout(group_param)
+        group_param.setStyleSheet("QGroupBox { font-weight: bold; font-family: 'Microsoft YaHei'; }")
+        layout_param = QVBoxLayout(group_param)
+        layout_param.setContentsMargins(10, 15, 10, 15)
+        layout_param.setSpacing(12)
 
+        # 移动间隔/速度
+        row_move = QHBoxLayout()
+        lbl_move_idle = QLabel("移动间隔(秒):")
         self.spin_move_idle = QSpinBox()
         self.spin_move_idle.setRange(0, 86400)
+        
+        lbl_move_speed = QLabel("移动速度:")
         self.spin_move_speed = QSpinBox()
         self.spin_move_speed.setRange(0, 1920)
-        self.spin_bubble_idle = QSpinBox()
-        self.spin_bubble_idle.setRange(0, 3600)
+        
+        row_move.addWidget(lbl_move_idle)
+        row_move.addWidget(self.spin_move_idle)
+        row_move.addSpacing(15)
+        row_move.addWidget(lbl_move_speed)
+        row_move.addWidget(self.spin_move_speed)
+        layout_param.addLayout(row_move)
+
+        # 气泡显示时长
+        row_dur = QHBoxLayout()
+        lbl_bubble_dur = QLabel("气泡显示时长(秒):")
         self.spin_bubble_dur = QSpinBox()
         self.spin_bubble_dur.setRange(1, 180)
+        row_dur.addWidget(lbl_bubble_dur)
+        row_dur.addWidget(self.spin_bubble_dur)
+        row_dur.addStretch()
+        layout_param.addLayout(row_dur)
 
-        layout_param.addRow("移动间隔(秒):", self.spin_move_idle)
-        layout_param.addRow("移动速度(像素/帧):", self.spin_move_speed)
-        layout_param.addRow("气泡显示间隔(秒):", self.spin_bubble_idle)
-        layout_param.addRow("气泡显示时长(秒):", self.spin_bubble_dur)
+        # 滑块造型的 QSS 样式表
+        slider_qss = """
+            QSlider::groove:horizontal {
+                height: 6px;
+                background: #e4e7ed;
+                border-radius: 3px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #409eff;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #ffffff;
+                border: 2px solid #409eff;
+                width: 14px;
+                height: 14px;
+                margin-top: -4px;
+                margin-bottom: -4px;
+                border-radius: 7px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #409eff;
+            }
+        """
+
+        # 透明度布局
+        row_op = QHBoxLayout()
+        lbl_opacity = QLabel("透明度:")
+        lbl_opacity.setFixedWidth(60)
+        self.slider_opacity = QSlider(Qt.Horizontal)
+        self.slider_opacity.setRange(0, 100)
+        self.slider_opacity.setStyleSheet(slider_qss)
+        self.spin_opacity = QSpinBox()
+        self.spin_opacity.setRange(0, 100)
+        self.spin_opacity.setSuffix("%")
+        row_op.addWidget(lbl_opacity)
+        row_op.addWidget(self.slider_opacity)
+        row_op.addWidget(self.spin_opacity)
+        layout_param.addLayout(row_op)
+
+        # 大小缩放布局
+        row_sc = QHBoxLayout()
+        lbl_scale = QLabel("大小缩放:")
+        lbl_scale.setFixedWidth(60)
+        self.slider_scale = QSlider(Qt.Horizontal)
+        self.slider_scale.setRange(0, 500)
+        self.slider_scale.setStyleSheet(slider_qss)
+        self.spin_scale = QSpinBox()
+        self.spin_scale.setRange(0, 500)
+        self.spin_scale.setSuffix("%")
+        row_sc.addWidget(lbl_scale)
+        row_sc.addWidget(self.slider_scale)
+        row_sc.addWidget(self.spin_scale)
+        layout_param.addLayout(row_sc)
+
         main_layout.addWidget(group_param)
 
-        # 绑定滑块数值回显信号
-        self.slider_opacity.valueChanged.connect(lambda v: self.lbl_opacity_val.setText(f"{v}%"))
-        self.slider_scale.valueChanged.connect(lambda v: self.lbl_scale_val.setText(f"{v}%"))
+        # 绑定滑块与微调框的 bidirection 双向数值同步
+        self.slider_opacity.valueChanged.connect(self.spin_opacity.setValue)
+        self.spin_opacity.valueChanged.connect(self.slider_opacity.setValue)
+        self.slider_scale.valueChanged.connect(self.spin_scale.setValue)
+        self.spin_scale.valueChanged.connect(self.slider_scale.setValue)
 
-        # --- 功能设置区 ---
-        group_func = QGroupBox("功能设置")
-        group_func.setStyleSheet("QGroupBox { font-weight: bold; font-family: 'Microsoft YaHei'; }")
-        layout_func = QHBoxLayout(group_func)
+        # 页签
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setStyleSheet("QTabBar::tab { font-family: 'Microsoft YaHei'; }")
+        
+        # 第一页签：功能设置
+        tab_func_page = QWidget()
+        layout_tab_func = QHBoxLayout(tab_func_page)
+        layout_tab_func.setContentsMargins(15, 15, 15, 15)
+        layout_tab_func.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        layout_tab_func.setSpacing(25)
 
         self.chk_hourly = QCheckBox("整点报时")
         self.chk_half_hourly = QCheckBox("半点报时")
-        layout_func.addWidget(self.chk_hourly)
-        layout_func.addWidget(self.chk_half_hourly)
-        main_layout.addWidget(group_func)
+        layout_tab_func.addWidget(self.chk_hourly)
+        layout_tab_func.addWidget(self.chk_half_hourly)
+        
+        self.tab_widget.addTab(tab_func_page, "功能设置")
+        main_layout.addWidget(self.tab_widget)
 
-        # --- 底部按钮区 ---
+        # 底部按钮区
         layout_btn = QHBoxLayout()
         layout_btn.addStretch(1)
 
         self.btn_reset = QPushButton("恢复默认配置")
         self.btn_reset.setFixedSize(100, 30)
-        self.btn_reset.setStyleSheet("background-color: #f56c6c; color: white; border-radius: 4px;")
+        self.btn_reset.setStyleSheet("background-color: #f56c6c; color: white; border-radius: 4px; font-family: 'Microsoft YaHei';")
 
         self.btn_close = QPushButton("关闭面板")
         self.btn_close.setFixedSize(100, 30)
-        self.btn_close.setStyleSheet("background-color: #409eff; color: white; border-radius: 4px;")
+        self.btn_close.setStyleSheet("background-color: #409eff; color: white; border-radius: 4px; font-family: 'Microsoft YaHei';")
 
         layout_btn.addWidget(self.btn_reset)
         layout_btn.addWidget(self.btn_close)
         main_layout.addLayout(layout_btn)
 
-        # 绑定事件
-        self.slider_opacity.valueChanged.connect(lambda v: self.lbl_opacity_val.setText(f"{v}%"))
-        self.slider_scale.valueChanged.connect(lambda v: self.lbl_scale_val.setText(f"{v}%"))
-
+        # 统一信号事件绑定
         self.chk_top.toggled.connect(lambda v: self.config.set("always_on_top", v))
         self.chk_move.toggled.connect(lambda v: self.config.set("random_move", v))
         self.chk_idle_text.toggled.connect(lambda v: self.config.set("idle_text", v))
+        
         self.slider_opacity.valueChanged.connect(lambda v: self.config.set("opacity", v / 100.0))
         self.slider_scale.valueChanged.connect(lambda v: self.config.set("scale", v / 100.0))
 
@@ -117,8 +186,6 @@ class ControlPanel(QWidget):
             lambda: self.config.set("move_idle_sec", self.spin_move_idle.value()))
         self.spin_move_speed.editingFinished.connect(
             lambda: self.config.set("move_speed", self.spin_move_speed.value()))
-        self.spin_bubble_idle.editingFinished.connect(
-            lambda: self.config.set("bubble_idle_sec", self.spin_bubble_idle.value()))
         self.spin_bubble_dur.editingFinished.connect(
             lambda: self.config.set("bubble_duration_sec", self.spin_bubble_dur.value()))
 
@@ -132,21 +199,22 @@ class ControlPanel(QWidget):
         c = self.config.get_all()
         self.blockSignals(True)
 
-        # 同步数值与标签
+        # 同步滑块与微调器数值
         op_val = int(c["opacity"] * 100)
         sc_val = int(c["scale"] * 100)
         self.slider_opacity.setValue(op_val)
-        self.lbl_opacity_val.setText(f"{op_val}%")
+        self.spin_opacity.setValue(op_val)
         self.slider_scale.setValue(sc_val)
-        self.lbl_scale_val.setText(f"{sc_val}%")
+        self.spin_scale.setValue(sc_val)
 
         self.chk_top.setChecked(c["always_on_top"])
         self.chk_move.setChecked(c["random_move"])
         self.chk_idle_text.setChecked(c["idle_text"])
+        
         self.spin_move_idle.setValue(c["move_idle_sec"])
         self.spin_move_speed.setValue(c["move_speed"])
-        self.spin_bubble_idle.setValue(c["bubble_idle_sec"])
         self.spin_bubble_dur.setValue(c["bubble_duration_sec"])
+        
         self.chk_hourly.setChecked(c["hourly"])
         self.chk_half_hourly.setChecked(c["half_hourly"])
 

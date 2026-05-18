@@ -56,7 +56,7 @@ class PetEngine:
         self.pet_menu = QMenu()
 
         self.action_top = QAction("桌宠置顶", self.tray_menu, checkable=True)
-        self.action_move = QAction("待机移动", self.tray_menu, checkable=True)
+        self.action_move = QAction("自主走动", self.tray_menu, checkable=True)
         self.action_panel = QAction("打开控制面板", self.tray_menu)
         self.action_quit = QAction("退出程序", self.tray_menu)
 
@@ -64,7 +64,7 @@ class PetEngine:
         self.pet_menu.addActions([self.action_top, self.action_move, self.action_panel, self.action_quit])
 
         self.tray_icon.setContextMenu(self.tray_menu)
-        self.tray_icon.activated.connect(self. _tray_activated)
+        self.tray_icon.activated.connect(self._tray_activated)
 
         # 将桌宠右键绑定
         self.pet_widget.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -74,7 +74,7 @@ class PetEngine:
 
         self.action_top.triggered.connect(lambda v: self.config.set("always_on_top", v))
         self.action_move.triggered.connect(lambda v: self.config.set("random_move", v))
-        self.action_panel.triggered.connect(self.control_panel.show)
+        self.action_panel.triggered.connect(self.show_control_panel)
         self.action_quit.triggered.connect(self.stop)
 
     def _bind_signals(self):
@@ -85,7 +85,40 @@ class PetEngine:
 
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
-            self.control_panel.show()
+            self.show_control_panel()
+
+    def show_control_panel(self):
+        """展示控制面板并确保置于当前顶层，同步任务栏图标"""
+        icon = self.pet_widget.get_first_frame()
+        if not icon.isNull():
+            self.control_panel.setWindowIcon(icon)
+        self.control_panel.showNormal()      # 如果最小化了，恢复正常大小
+        self.control_panel.raise_()           # 提到窗口堆叠最上方
+        self.control_panel.activateWindow()   # 夺取活动焦点
+
+    def close_bubble_by_source(self, source: str):
+        """精准去掉特定来源的气泡"""
+        # 过滤掉队列里还未弹出的同源请求
+        self.bubble_queue = [msg for msg in self.bubble_queue if msg.source != source]
+        
+        # 如果当前飘着的正好是这个气泡彻底强杀
+        if self.current_bubble_msg and self.current_bubble_msg.source == source:
+            if self.bubble_timer.isActive():
+                self.bubble_timer.stop()
+            
+            self.current_bubble_msg = None
+            if self.current_bubble_ui:
+                try:
+                    # 断开原生销毁槽，防止因 close() 再次重复推进队列造成断档
+                    self.current_bubble_ui.destroyed.disconnect(self._process_next_bubble)
+                except TypeError:
+                    pass
+                self.current_bubble_ui.close()
+                self.current_bubble_ui.deleteLater()
+                self.current_bubble_ui = None
+            
+            # 释放当前后，主动安全推进下一个气泡
+            self._process_next_bubble()
 
     def _sync_bubble_position(self):
         """全时段气泡同步"""
@@ -97,10 +130,7 @@ class PetEngine:
 
     def _on_pet_clicked(self):
         """响应点击事件"""
-        # 切换到互动的 GIF 动作
         self.pet_widget.switch_scene("interact")
-
-        # 映射
         quote = self.api.get_random_quote("interact")
         
         self.api.show_bubble(

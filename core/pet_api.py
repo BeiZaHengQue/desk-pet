@@ -17,6 +17,10 @@ class PetAPI:
         msg = BubbleMsg(text=text, duration=duration, source=source, priority=priority)
         self._engine.handle_bubble_request(msg)
 
+    def close_bubble_by_source(self, source):
+        """通知引擎定点清除特定来源的气泡"""
+        self._engine.close_bubble_by_source(source)
+
     def start_random_move(self):
         self._engine.start_move()
 
@@ -39,7 +43,7 @@ class PetAPI:
         except Exception:
             return 0
 
-    def get_random_quote(self,text_type):
+    def get_random_quote(self, text_type):
         """
         text_type: "idle" 或 "interact"
         """
