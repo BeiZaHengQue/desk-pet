@@ -21,12 +21,6 @@ class PetAPI:
         """通知引擎定点清除特定来源的气泡"""
         self._engine.close_bubble_by_source(source)
 
-    def start_random_move(self):
-        self._engine.start_move()
-
-    def stop_random_move(self):
-        self._engine.stop_move()
-
     def get_config(self, key):
         return self._config.get(key)
 
