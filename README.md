@@ -1,37 +1,67 @@
-🐱 简易互动桌宠 (Desktop Pet)
-这是一款基于 PyQt5 开发的Windows轻量级桌面萌宠。它不仅能安安静静地陪你写代码，还会定时报时、待机吐槽，并且支持高度自定义——你可以轻松更换你喜欢的 GIF 形象和对话文案。
+<p align="right">
+  <a href="./README_EN.md">switch English</a>
+</p>
 
-✨ 项目亮点
-🎨 形象自定义：只需替换 assets 目录下的 cat.gif，即可拥有专属桌宠形象。
+# 北子-桌宠
+基于 PyQt5 开发的 Windows 桌面宠物
 
-💬 话痨模式：支持点击互动、整点/半点报时、长时间待机（可自定义）自动吐槽。
+## 支持功能
+- 可自定义桌宠形象和说话内容，在 assets 目录里对应的文件夹（具体参考下面的文件结构）内替换即可（注：桌宠形象只支持GIF文件）
+- 左键点击桌宠互动/按住桌宠可拖拽
+- 右键点击桌宠/系统托盘图标弹出菜单
+- 控制面板可定义桌宠大小、透明度和移动设置
+- 模块化扩展架构
 
-🛠️ 控制面板：实时调节透明度、缩放大小、置顶开关及随机移动。
+## 下载
+如果觉得过于复杂或者想直接使用现成的可直接点击下方下载：
 
-💾 配置记忆：所有设置自动保存至本地 config.json，下次启动依然如初。
+[下载](https://github.com/BeiZaHengQue/desk-pet/releases/latest/download/BeiZi-DeskPet.zip)
 
-🚀 快速开始
-如果想快速使用，在
-https://github.com/BeiZaHengQue/desk-pet/releases/tag/v0.1.0
-内双击desk-pet-windows-v0.1.0.zip下载，解压后打开文件夹运行exe程序
-1. 环境准备
-确保你的电脑已有 Python 3.11环境，然后安装依赖：
-Bash
-pip install PyQt5
-2. 运行程序
-在文件夹内打开cmd
-Bash
+下载解压后进入文件夹双击运行 BeiZa-DeskPet.exe即可
+
+## 快速开始
+Python版本只支持 3.8 ～ 3.12，建议Python 3.10
+```bash
+pip install -r requirements.txt
 python main.py
-3. 快捷操作
-桌宠：
-左键按住：拖动桌宠到屏幕任意位置。
-左键单击：触发随机互动对话。
-右键菜单：打开控制面板、设置置顶、开启/关闭移动或退出程序。
+```
 
-系统托盘：
-右键菜单：与桌宠一致
-左键双击：打开控制面板
-
-换皮肤：准备一张透明背景的 GIF，重命名为 cat.gif 替换 assets/cat.gif。
-
-改文案：用记事本打开 assets/ 下的 .txt 文件（click_quotes.txt 点击互动文案 idle_quotes.txt 待机吐槽文案），每行写一句你想让它说的话，保存即可。
+## 文件结构
+```text
+BeiZi-DeskPet/
+│
+├── assets/                          # 外置资源文件夹
+│   ├── host/                        # 桌宠动画形象文件夹
+│   │   ├── idle/                    # 存放待机状态的 GIF 素材
+│   │   ├── interact/                # 存放被鼠标点击互动状态的 GIF 素材
+│   │   └── fallback/                # 存放备用/资源缺失时恢复的 GIF 素材
+│   └── soul/                        # 桌宠媒体资源文件夹
+│       └── text/                    # 桌宠文本库
+│           ├── idle_sentences.txt          # 待机无聊说话文案（一行一句）
+│           └── interaction_sentences.txt   # 点击互动说话文案（一行一句）
+│
+├── core/                            # 核心逻辑控制层
+│   ├── config_manager.py            # 配置管理类（处理本地 JSON 读写与回滚）
+│   ├── module_manager.py            # 扩展功能模块生命周期管理器
+│   ├── pet_api.py                   # 核心中枢向外暴露的系统检测及词库随机抽取接口
+│   ├── pet_engine.py                # 引擎主控制中枢（动作切换、移动状态机、托盘及气泡排队调度）
+│   └── types.py                     # 全局数据结构定义
+│
+├── modules/                         # 扩展模块
+│   ├── __init__.py                  # 模块基类 BaseModule 定义
+│   ├── idle_bubble.py               # 待机无聊说话触发模块
+│   └── time_notify.py               # 时间检测与整点/半点报时触发模块 
+│
+├── ui/                              # UI层
+│   ├── bubble.py                    # 无边框气泡提示框 UI（动态算宽、触边反弹
+│   ├── control_panel.py             # 桌宠控制面板设置界面 UI（滑块、输入框数值绑定）
+│   └── pet_widget.py                # 桌宠本体窗口 UI（透明无边框、GIF渲染、处理鼠标拖拽与点击）
+│
+├── utils/                           # 工具集
+│   ├── __init__.py                  # 工具包初始化文件
+│   ├── paths.py                     # 路径解析（兼容本地开发环境与打包后的绝对路径）
+│   └── resource_manager.py          # 资源文件扫描与文件过滤器（扫描合法 GIF 和文案路径）
+│
+├── config.json                      # 运行后自动生成的配置文件 
+└── main.py                          # 程序唯一启动入口
+```

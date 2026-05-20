@@ -40,8 +40,8 @@ class Bubble(QWidget):
         if not screen: return
         screen_rect = screen.availableGeometry()
 
-        # 最大宽度：桌宠宽度的 2.2 倍，兜底限制最小为 10
-        max_w = max(10, int(pet_rect.width() * 2.2))
+        # 最大宽度：桌宠宽度的 1.9倍，兜底限制最小为 10
+        max_w = max(10, int(pet_rect.width() * 1.9))
 
         # 参数顺序：x, y, width, height, flags, text
         text_rect = self.font_metrics.boundingRect(0, 0, max_w, 10221119, Qt.TextWordWrap, self.text)

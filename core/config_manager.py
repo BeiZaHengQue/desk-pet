@@ -10,6 +10,7 @@ class ConfigManager(QObject):
     _instance = None
 
     CONFIG_FILE = "config.json"
+    DEFAULT_CONFIG_FILE = "default_config.json"
 
     DEFAULT_CONFIG = {
         "always_on_top": True,
@@ -36,12 +37,28 @@ class ConfigManager(QObject):
         super().__init__()
         
         self.CONFIG_FILE = resource_path("config.json")
+        self.DEFAULT_CONFIG_FILE = resource_path("default_config.json")
+        self._load_default_config_from_json()
         
         self._config = {}
         # 初始化顺序：先尝试从本地加载，失败则使用默认并保存
         self._load_from_json()
         self.__initialized = True
 
+    def _load_default_config_from_json(self):
+        """从磁盘加载默认配置"""
+        if os.path.exists(self.DEFAULT_CONFIG_FILE):
+            try:
+                with open(self.DEFAULT_CONFIG_FILE, "r", encoding="utf-8") as f:
+                    loaded_default = json.load(f)
+                    # 采用 copy + update 结构防止结构缺失
+                    new_default = self.DEFAULT_CONFIG.copy()
+                    new_default.update(loaded_default)
+                    # 动态覆写类属性
+                    ConfigManager.DEFAULT_CONFIG = new_default
+            except Exception as e:
+                print(f"读取默认配置: {e}")
+    
     def _load_from_json(self):
         """检测并读取 JSON 文件"""
         if os.path.exists(self.CONFIG_FILE):
@@ -52,7 +69,7 @@ class ConfigManager(QObject):
                     self._config = self.DEFAULT_CONFIG.copy()
                     self._config.update(loaded_data)
             except Exception as e:
-                print(f"配置文件读取失败，将重置为默认: {e}")
+                print(f"无法读取配置文件，重置为默认: {e}")
                 self._config = self.DEFAULT_CONFIG.copy()
                 self._save_to_json()
         else:
@@ -87,3 +104,13 @@ class ConfigManager(QObject):
         self._config = self.DEFAULT_CONFIG.copy()
         self._save_to_json()
         self.config_changed.emit()
+
+    def save_current_as_default(self):
+        """将当前配置直接重写到 DEFAULT_CONFIG"""
+        ConfigManager.DEFAULT_CONFIG = self._config.copy()
+ 
+        try:
+            with open(self.DEFAULT_CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(ConfigManager.DEFAULT_CONFIG, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"保存默认配置失败: {e}")

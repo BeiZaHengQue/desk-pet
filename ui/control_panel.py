@@ -162,6 +162,10 @@ class ControlPanel(QWidget):
         layout_btn = QHBoxLayout()
         layout_btn.addStretch(1)
 
+        self.btn_save_default = QPushButton("保存配置")
+        self.btn_save_default.setFixedSize(100,30)
+        self.btn_save_default.setStyleSheet("background-color: #1890ff; color: white; border-radius: 4px; border-radius: 4px; font-family: 'Microsoft YaHei';")
+
         self.btn_reset = QPushButton("恢复默认配置")
         self.btn_reset.setFixedSize(100, 30)
         self.btn_reset.setStyleSheet("background-color: #f56c6c; color: white; border-radius: 4px; font-family: 'Microsoft YaHei';")
@@ -170,6 +174,7 @@ class ControlPanel(QWidget):
         self.btn_close.setFixedSize(100, 30)
         self.btn_close.setStyleSheet("background-color: #409eff; color: white; border-radius: 4px; font-family: 'Microsoft YaHei';")
 
+        layout_btn.addWidget(self.btn_save_default)
         layout_btn.addWidget(self.btn_reset)
         layout_btn.addWidget(self.btn_close)
         main_layout.addLayout(layout_btn)
@@ -192,6 +197,7 @@ class ControlPanel(QWidget):
         self.chk_hourly.toggled.connect(lambda v: self.config.set("hourly", v))
         self.chk_half_hourly.toggled.connect(lambda v: self.config.set("half_hourly", v))
 
+        self.btn_save_default.clicked.connect(self.save_default)
         self.btn_close.clicked.connect(self.hide)
         self.btn_reset.clicked.connect(self.handle_reset)
 
@@ -221,10 +227,18 @@ class ControlPanel(QWidget):
         self.blockSignals(False)
 
     def handle_reset(self):
-        reply = QMessageBox.question(self, "确认", "是否确认恢复所有配置为默认值？",
+        reply = QMessageBox.question(self, "确认", "是否确认恢复为默认配置？",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             self.config.reset_to_default()
+
+    def save_default(self):
+        reply = QMessageBox.question(
+            self, "确认", "是否将当前配置保存为默认配置？",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            self.config.save_current_as_default()
 
     def closeEvent(self, event):
         self.hide()

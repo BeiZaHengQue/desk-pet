@@ -6,7 +6,8 @@ class ResourceManager:
     @staticmethod
     def get_host_gif(scene="idle"):
         """
-        从 assets/host/<scene> 随机取一个 GIF，失败则去 fallback"""
+        从 assets/host/<scene> 随机取一个 GIF，失败则去 fallback
+        """
         target_path = resource_path("assets", "host", scene)
         fallback_path = resource_path("assets", "host", "fallback")
 
