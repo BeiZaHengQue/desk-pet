@@ -16,7 +16,7 @@ class TimeNotifyModule(BaseModule):
     def start(self):
         if not self.timer.isActive():
             # 检查间隔
-            self.timer.start(3000)
+            self.timer.start(20000)
 
     def stop(self):
         self.timer.stop()

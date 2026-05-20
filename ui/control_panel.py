@@ -227,14 +227,14 @@ class ControlPanel(QWidget):
         self.blockSignals(False)
 
     def handle_reset(self):
-        reply = QMessageBox.question(self, "确认", "是否确认恢复为默认配置？",
+        reply = QMessageBox.question(self, "确认", "是否确认恢复为默认配置?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             self.config.reset_to_default()
 
     def save_default(self):
         reply = QMessageBox.question(
-            self, "确认", "是否将当前配置保存为默认配置？",
+            self, "确认", "是否将当前配置保存为默认配置?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
         if reply == QMessageBox.Yes:

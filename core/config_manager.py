@@ -9,10 +9,8 @@ class ConfigManager(QObject):
     config_changed = pyqtSignal()
     _instance = None
 
-    CONFIG_FILE = "config.json"
-    DEFAULT_CONFIG_FILE = "default_config.json"
-
-    DEFAULT_CONFIG = {
+    # 硬编码底层配置
+    HARD_DEFAULT = {
         "always_on_top": True,
         "random_move": True,
         "opacity": 1.0,
@@ -28,62 +26,116 @@ class ConfigManager(QObject):
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(ConfigManager, cls).__new__(cls, *args, **kwargs)
-            cls._instance.__initialized = False
+            cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
-        if self.__initialized:
+        if self._initialized:
             return
         super().__init__()
         
-        self.CONFIG_FILE = resource_path("config.json")
-        self.DEFAULT_CONFIG_FILE = resource_path("default_config.json")
-        self._load_default_config_from_json()
+        # 锁死文件的外置路径
+        self.CONFIG_FILE = resource_path("config", "config.json")
+        self.CONFIG_BAK = resource_path("config", "config.bak")
+        self.DEFAULT_FILE = resource_path("config", "default_config.json")
+        self.DEFAULT_BAK = resource_path("config", "default_config.bak")
         
-        self._config = {}
-        # 初始化顺序：先尝试从本地加载，失败则使用默认并保存
-        self._load_from_json()
-        self.__initialized = True
+        # 自动建config 文件夹
+        os.makedirs(os.path.dirname(self.CONFIG_FILE), exist_ok=True)
+        
+        self._config = {}           # 运行时内存字典
+        self.DEFAULT_CONFIG = {}    # 默认配置内存字典
+        
+        self._bootstrap_system()
+        self._initialized = True
 
-    def _load_default_config_from_json(self):
-        """从磁盘加载默认配置"""
-        if os.path.exists(self.DEFAULT_CONFIG_FILE):
+    def _align_with_default(self, target_dict, base_dict):
+        """结构对齐：确保 target_dict 包含了 base_dict 里的所有键"""
+        result = base_dict.copy()
+        if isinstance(target_dict, dict):
+            result.update(target_dict)
+        return result
+
+    def _bootstrap_system(self):
+        """自愈启动：文件异常读取备份"""
+        need_repair = False  # 状态锁：只有触发了修复，最后才写盘同步
+
+        # 加载默认配置轨道 (DEFAULT_CONFIG)
+        default_loaded = False
+        if os.path.exists(self.DEFAULT_FILE):
             try:
-                with open(self.DEFAULT_CONFIG_FILE, "r", encoding="utf-8") as f:
-                    loaded_default = json.load(f)
-                    # 采用 copy + update 结构防止结构缺失
-                    new_default = self.DEFAULT_CONFIG.copy()
-                    new_default.update(loaded_default)
-                    # 动态覆写类属性
-                    ConfigManager.DEFAULT_CONFIG = new_default
+                with open(self.DEFAULT_FILE, "r", encoding="utf-8") as f:
+                    self.DEFAULT_CONFIG = self._align_with_default(json.load(f), self.HARD_DEFAULT)
+                    default_loaded = True
             except Exception as e:
-                print(f"读取默认配置: {e}")
-    
-    def _load_from_json(self):
-        """检测并读取 JSON 文件"""
+                print(f"[提示] 默认配置文件损坏，尝试读取备份: {e}")
+
+        if not default_loaded and os.path.exists(self.DEFAULT_BAK):
+            try:
+                with open(self.DEFAULT_BAK, "r", encoding="utf-8") as f:
+                    self.DEFAULT_CONFIG = self._align_with_default(json.load(f), self.HARD_DEFAULT)
+                    default_loaded = True
+                    need_repair = True
+                    print("[恢复] 成功从备份还原 default_config")
+            except Exception as e:
+                print(f"[警告] 默认配置备份已失效: {e}")
+
+        if not default_loaded:
+            self.DEFAULT_CONFIG = self.HARD_DEFAULT.copy()
+            need_repair = True
+            print("[提示] 已初始化初始配置")
+
+        # 加载运行配置轨道 (_config)
+        config_loaded = False
         if os.path.exists(self.CONFIG_FILE):
             try:
                 with open(self.CONFIG_FILE, "r", encoding="utf-8") as f:
-                    loaded_data = json.load(f)
-                    # 使用默认配置兜底，防止 JSON 缺少某些新增加的键
-                    self._config = self.DEFAULT_CONFIG.copy()
-                    self._config.update(loaded_data)
+                    self._config = self._align_with_default(json.load(f), self.DEFAULT_CONFIG)
+                    config_loaded = True
             except Exception as e:
-                print(f"无法读取配置文件，重置为默认: {e}")
-                self._config = self.DEFAULT_CONFIG.copy()
-                self._save_to_json()
-        else:
-            # 文件不存在，生成初始文件
-            self._config = self.DEFAULT_CONFIG.copy()
-            self._save_to_json()
+                print(f"[提示] 运行配置文件损坏，尝试读取备份: {e}")
 
-    def _save_to_json(self):
-        """将当前配置写入磁盘"""
+        if not config_loaded and os.path.exists(self.CONFIG_BAK):
+            try:
+                with open(self.CONFIG_BAK, "r", encoding="utf-8") as f:
+                    self._config = self._align_with_default(json.load(f), self.DEFAULT_CONFIG)
+                    config_loaded = True
+                    need_repair = True
+                    print("[恢复] 成功从备份还原 config")
+            except Exception as e:
+                print(f"[警告] 运行配置备份已失效: {e}")
+
+        if not config_loaded:
+            self._config = self.DEFAULT_CONFIG.copy()
+            need_repair = True
+            print("[提示] 自动应用当前默认配置代入运行")
+
+        # 闭环同步：只有真正发生过修复，才重新固化本地文件
+        if need_repair:
+            self._save_file_atomic(self.CONFIG_FILE, self.CONFIG_BAK, self._config)
+            self._save_file_atomic(self.DEFAULT_FILE, self.DEFAULT_BAK, self.DEFAULT_CONFIG)
+
+    def _save_file_atomic(self, main_path, bak_path, data_dict):
+        """使用 os.replace 替换，避免 Windows 下的删除空窗期"""
+        tmp_file = main_path + ".tmp"
         try:
-            with open(self.CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._config, f, indent=4, ensure_ascii=False)
+            with open(tmp_file, "w", encoding="utf-8") as f:
+                json.dump(data_dict, f, indent=4, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_file, main_path)  # 底层瞬间覆盖替换
+
+            # 同步刷新备份
+            tmp_bak = bak_path + ".tmp"
+            with open(tmp_bak, "w", encoding="utf-8") as f:
+                json.dump(data_dict, f, indent=4, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_bak, bak_path)
         except Exception as e:
-            print(f"写入配置失败: {e}")
+            print(f"[错误] 磁盘原子写入失败: {e}")
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
 
     def get(self, key, default=None):
         return self._config.get(key, default)
@@ -92,25 +144,21 @@ class ConfigManager(QObject):
         return self._config.copy()
 
     def set(self, key, value):
+        # 防重入检查
         if key in self._config and self._config[key] == value:
             return
         self._config[key] = value
-        # 每次设置后自动同步磁盘
-        self._save_to_json()
+        # 仅刷新运行配置轨道
+        self._save_file_atomic(self.CONFIG_FILE, self.CONFIG_BAK, self._config)
         self.config_changed.emit()
 
     def reset_to_default(self):
-        """恢复默认并保留"""
+        """恢复默认"""
         self._config = self.DEFAULT_CONFIG.copy()
-        self._save_to_json()
+        self._save_file_atomic(self.CONFIG_FILE, self.CONFIG_BAK, self._config)
         self.config_changed.emit()
 
     def save_current_as_default(self):
-        """将当前配置直接重写到 DEFAULT_CONFIG"""
-        ConfigManager.DEFAULT_CONFIG = self._config.copy()
- 
-        try:
-            with open(self.DEFAULT_CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(ConfigManager.DEFAULT_CONFIG, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"保存默认配置失败: {e}")
+        """保存当前为默认"""
+        self.DEFAULT_CONFIG = self._config.copy()
+        self._save_file_atomic(self.DEFAULT_FILE, self.DEFAULT_BAK, self.DEFAULT_CONFIG)

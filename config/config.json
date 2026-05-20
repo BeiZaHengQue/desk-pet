@@ -2,7 +2,7 @@
     "always_on_top": true,
     "random_move": true,
     "opacity": 1.0,
-    "scale": 0.7,
+    "scale": 0.8,
     "move_idle_sec": 60,
     "move_speed": 5,
     "idle_text": true,
