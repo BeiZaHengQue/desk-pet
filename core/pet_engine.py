@@ -101,7 +101,6 @@ class PetEngine:
         # 过滤掉队列里还未弹出的同源请求
         self.bubble_queue = [msg for msg in self.bubble_queue if msg.source != source]
         
-        # 如果当前飘着的正好是这个气泡彻底强杀
         if self.current_bubble_msg and self.current_bubble_msg.source == source:
             if self.bubble_timer.isActive():
                 self.bubble_timer.stop()
@@ -117,11 +116,11 @@ class PetEngine:
                 self.current_bubble_ui.deleteLater()
                 self.current_bubble_ui = None
             
-            # 释放当前后，主动安全推进下一个气泡
+            # 释放当前后，推进下一个气泡
             self._process_next_bubble()
 
     def _sync_bubble_position(self):
-        """全时段气泡同步"""
+        """气泡同步"""
         if self.current_bubble_ui and self.current_bubble_ui.isVisible():
             try:
                 self.current_bubble_ui.update_position(self.pet_widget)
@@ -280,12 +279,14 @@ class PetEngine:
         self._move_total_time = random.randint(3000, 9000)  # 3到9秒
         self._move_time_passed = 0
         self._move_angle = random.uniform(0, 2 * math.pi)
+        self.pet_widget.switch_scene("move")
         self.move_timer.start()
 
     def _update_position(self):
         self._move_time_passed += 15
         if self._move_time_passed >= self._move_total_time:
             self._reset_move_timer()
+            self.pet_widget.switch_scene("idle") 
             return
 
         # 移动超过3秒后，每3秒有60%概率重新随机方向

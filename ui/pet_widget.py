@@ -8,6 +8,8 @@ class PetWidget(QLabel):
     geometry_changed = pyqtSignal()
     clicked = pyqtSignal()
     drag_finished = pyqtSignal()
+    # 方便以后通知外部当前真正进入了拖拽状态
+    drag_started = pyqtSignal() 
 
     def __init__(self):
         super().__init__()
@@ -40,7 +42,7 @@ class PetWidget(QLabel):
         return QIcon()
 
     def switch_scene(self, scene_name):
-        """一键切换 GIF 场景"""
+        """切换 GIF 场景"""
         gif_path = ResourceManager.get_host_gif(scene_name)
         if not gif_path:
             return
@@ -100,10 +102,14 @@ class PetWidget(QLabel):
 
     def mouseMoveEvent(self, event):
         if self._is_dragging and event.buttons() == Qt.LeftButton:
-            # 移动超过系统阈值，判定为拖拽
             move_distance = (event.globalPos() - self._press_pos).manhattanLength()
+            
+            # 判定为拖拽的瞬间，切换为 drag 动画
             if move_distance > QApplication.startDragDistance():
-                self._click_canceled = True
+                if not self._click_canceled: # 确保只在刚跨越阈值的瞬间切换一次
+                    self._click_canceled = True
+                    self.drag_started.emit()
+                    self.switch_scene("drag") # 瞬间换成拖拽形象
 
             self.move(event.globalPos() - self._drag_offset)
             event.accept()
@@ -115,8 +121,13 @@ class PetWidget(QLabel):
             # 判断点击还是拖拽完成
             duration = time.time() - self._press_time
             if duration <= 0.3 and not self._click_canceled:
+                # 触发点击事件，切换到点击动画
+                self.switch_scene("click") 
                 self.clicked.emit()
+                
             else:
+                # 拖拽松开，瞬间恢复发呆状态，并发送拖拽结束信号
+                self.switch_scene("idle")
                 self.drag_finished.emit()
 
             event.accept()
