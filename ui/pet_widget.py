@@ -29,6 +29,7 @@ class PetWidget(QLabel):
         self._click_canceled = False
         
         # 启动默认场景
+        self._protected_until = 0  # 高优先级动画保护截止时间戳（毫秒）
         self.switch_scene("idle")
 
     def get_first_frame(self):
@@ -41,8 +42,14 @@ class PetWidget(QLabel):
             return QIcon(pixmap)
         return QIcon()
 
-    def switch_scene(self, scene_name):
+    def switch_scene(self, scene_name, duration_ms=0):
         """切换 GIF 场景"""
+        current_time = time.time() * 1000
+        
+        # 如果当前还处于高优先级动画保护期，直接无视后台发来的常规常态
+        if current_time < self._protected_until and scene_name in ["idle", "move"]:
+            return
+
         gif_path = ResourceManager.get_host_gif(scene_name)
         if not gif_path:
             return
@@ -50,15 +57,17 @@ class PetWidget(QLabel):
         if self._movie:
             self._movie.stop()
 
-        # 加载新 GIF
         self._movie = QMovie(gif_path)
         self.setMovie(self._movie)
         
-        # 预读第一帧获取原始尺寸
         self._movie.jumpToFrame(0)
         self._base_size = self._movie.currentImage().size()
- 
         self.set_scale(self.current_scale)
+        self._movie.start()  # 确保显式启动播放
+
+        # 如果设定了保护时长，更新截止时间戳
+        if duration_ms > 0:
+            self._protected_until = current_time + duration_ms
 
     def set_scale(self, scale):
         """原地缩放"""
@@ -118,18 +127,15 @@ class PetWidget(QLabel):
         if event.button() == Qt.LeftButton and self._is_dragging:
             self._is_dragging = False
 
-            # 判断点击还是拖拽完成
             duration = time.time() - self._press_time
             if duration <= 0.3 and not self._click_canceled:
-                # 触发点击事件，切换到点击动画
-                self.switch_scene("click") 
+                # 给点击动作 1s 的绝对保护期
+                self.switch_scene("click", duration_ms=1000) 
                 self.clicked.emit()
-                
             else:
-                # 拖拽松开，瞬间恢复发呆状态，并发送拖拽结束信号
-                self.switch_scene("idle")
+                # 拖拽结束，抛出结束信号
                 self.drag_finished.emit()
-
+                
             event.accept()
 
     def moveEvent(self, event):

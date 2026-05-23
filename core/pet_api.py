@@ -1,6 +1,4 @@
 import os
-from utils.paths import resource_path
-import random
 import ctypes
 from core.types import BubblePriority, BubbleMsg
 
@@ -37,24 +35,8 @@ class PetAPI:
         except Exception:
             return 0
 
-    def get_random_quote(self, text_type):
+    def dispatch_state_packet(self, packet: dict):
         """
-        text_type: "idle" 或 "interact"
+        、外部模块/拓展插件接入底层核心状态机的安全状态包分发出口
         """
-        try:
-            from utils.resource_manager import ResourceManager
-
-            # 拿到由 ResourceManager 处理过后的绝对路径
-            file_path = ResourceManager.get_soul_text(text_type)
-
-            if not os.path.exists(file_path):
-                return "我的文件怎么找不到了，我不知道要说啥了"
-            
-            with open(file_path, "r", encoding="utf-8") as f:
-                quotes = [line.strip() for line in f if line.strip()]
-           
-            return random.choice(quotes) if quotes else "（脑子一片空白，发呆中...）"
-        
-        except Exception as e:
-            print(f"读取文案失败: {e}")
-            return "（别吵，有未知异常，我在烧烤...）"
+        self._engine.change_state_packet(packet)

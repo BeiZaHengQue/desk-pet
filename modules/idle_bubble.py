@@ -27,7 +27,6 @@ class IdleBubbleModule(BaseModule):
         self.cycle_timer.stop()
         if self.config.get("idle_text"):
             interval = self._get_weighted_random_sec() * 1000
-            # 锁定保护 
             self.cycle_timer.start(max(3000, interval))
 
     def stop(self):
@@ -36,7 +35,7 @@ class IdleBubbleModule(BaseModule):
         self.api.close_bubble_by_source("idle_speech")
 
     def refresh(self):
-        """总控开关：根据布尔值决定开启或关闭释放"""
+        """根据布尔值决定开启或关闭释放"""
         if self.config.get("idle_text"):
             self.start()
         else:
@@ -47,16 +46,19 @@ class IdleBubbleModule(BaseModule):
         self.start()
 
     def _trigger_speech(self):
-        """时间到，执行说话逻辑，并自动滚入下一轮加权摇号"""
-        quote = self.api.get_random_quote("idle") 
+        """
+        向接口层递增一个状态参数包
+        """
         duration = self.config.get("bubble_duration_sec", 3)
 
-        self.api.show_bubble(
-            text=quote,
-            source="idle_speech",
-            priority=1,  # BubblePriority.IDLE
-            duration=duration
-        )
+        self.api.dispatch_state_packet({
+            "speak": {
+                "text_type": "idle",
+                "priority": 1,  # BubblePriority.IDLE
+                "source": "idle_speech",
+                "duration": duration
+            }
+        })
         
         # 触发后重新启动下一轮随机摇号计时
         self.start()

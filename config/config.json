@@ -1,10 +1,10 @@
 {
     "always_on_top": true,
-    "random_move": false,
+    "random_move": true,
     "opacity": 1.0,
-    "scale": 0.6,
+    "scale": 1.39,
     "move_idle_sec": 0,
-    "move_speed": 10,
+    "move_speed": 5,
     "idle_text": true,
     "bubble_duration_sec": 3,
     "hourly": true,
