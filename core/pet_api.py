@@ -1,6 +1,6 @@
 import os
 import ctypes
-from core.types import BubblePriority, BubbleMsg
+from core.speech.types import SpeechPriority, SpeechRequest
 
 
 class PetAPI:
@@ -8,22 +8,21 @@ class PetAPI:
         self._engine = engine
         self._config = config
 
-    def show_bubble(self, text, source="unknown", priority=BubblePriority.IDLE, duration=None):
+    def speech_request(self, text, source="unknown", priority=SpeechPriority.IDLE, duration=None):
+        """讲话请求入口"""
         if duration is None:
-            duration = self._config.get("bubble_duration_sec")
+            duration = self._config.get("bubble_duration_sec", 3)
+        req = SpeechRequest(text=text, duration=duration, source=source, priority=priority)
+        self._engine.handle_speech_request(req)
 
-        msg = BubbleMsg(text=text, duration=duration, source=source, priority=priority)
-        self._engine.handle_bubble_request(msg)
-
-    def close_bubble_by_source(self, source):
-        """通知引擎定点清除特定来源的气泡"""
-        self._engine.close_bubble_by_source(source)
+    def cancel_speech_request(self, source):
+        """定点销毁指定来源的讲话"""
+        self._engine.cancel_speech_request(source)
 
     def get_config(self, key):
         return self._config.get(key)
 
     def get_idle_time(self):
-        """只支持Windows，统一出口检测系统空闲时长"""
         try:
             class LASTINPUTINFO(ctypes.Structure):
                 _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
@@ -36,7 +35,4 @@ class PetAPI:
             return 0
 
     def dispatch_state_packet(self, packet: dict):
-        """
-        、外部模块/拓展插件接入底层核心状态机的安全状态包分发出口
-        """
         self._engine.change_state_packet(packet)

@@ -6,11 +6,11 @@ from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QIcon
 from ui.pet_widget import PetWidget
 from ui.control_panel import ControlPanel
-from ui.bubble import Bubble
 from core.config_manager import ConfigManager
-from core.types import BubblePriority, BubbleMsg
 from core.pet_api import PetAPI
 from core.module_manager import ModuleManager
+from core.speech.manager import SpeechManager
+from core.speech.types import SpeechPriority, SpeechRequest
 
 
 class PetEngine:
@@ -21,21 +21,18 @@ class PetEngine:
         self.api = PetAPI(self, self.config)
         self.module_manager = ModuleManager(self.api, self.config)
 
-        self.bubble_queue = []  # 待显示气泡队列
-        self.current_bubble_ui = None
-        self.current_bubble_msg = None
+        self.speech_queue = []  
+        self.current_speech_req = None
 
-        self.bubble_timer = QTimer()
-        self.bubble_timer.setSingleShot(True)
-        self.bubble_timer.timeout.connect(self._on_bubble_timeout)
+        self.speech_manager = SpeechManager(self.pet_widget)
+        self.speech_manager.speech_finished.connect(self._on_speech_finished)
 
-        # 移动状态机定时器
         self.wait_timer = QTimer()
         self.wait_timer.setSingleShot(True)
         self.wait_timer.timeout.connect(self._trigger_move_cycle)
 
         self.move_timer = QTimer()
-        self.move_timer.setInterval(15)  # 固定15ms帧率
+        self.move_timer.setInterval(15)
         self.move_timer.timeout.connect(self._update_position)
 
         self._moving = False
@@ -81,7 +78,7 @@ class PetEngine:
         self.pet_widget.drag_started.connect(self._on_drag_started)
         self.pet_widget.drag_finished.connect(self._reset_move_timer)
         self.pet_widget.clicked.connect(self._on_pet_clicked)
-        self.pet_widget.geometry_changed.connect(self._sync_bubble_position)
+        self.pet_widget.geometry_changed.connect(self.speech_manager.sync_position)
 
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
@@ -95,31 +92,50 @@ class PetEngine:
         self.control_panel.raise_()
         self.control_panel.activateWindow()
 
-    def close_bubble_by_source(self, source: str):
-        self.bubble_queue = [msg for msg in self.bubble_queue if msg.source != source]
-        
-        if self.current_bubble_msg and self.current_bubble_msg.source == source:
-            if self.bubble_timer.isActive():
-                self.bubble_timer.stop()
-            
-            self.current_bubble_msg = None
-            if self.current_bubble_ui:
-                try:
-                    self.current_bubble_ui.destroyed.disconnect(self._process_next_bubble)
-                except TypeError:
-                    pass
-                self.current_bubble_ui.close()
-                self.current_bubble_ui.deleteLater()
-                self.current_bubble_ui = None
-            
-            self._process_next_bubble()
+    def handle_speech_request(self, req: SpeechRequest):
+        """根据优先级规则进行仲裁"""
+        if not self.current_speech_req:
+            self._awaken_speech_subsystem(req)
+            return
 
-    def _sync_bubble_position(self):
-        if self.current_bubble_ui and self.current_bubble_ui.isVisible():
-            try:
-                self.current_bubble_ui.update_position(self.pet_widget)
-            except RuntimeError:
-                self.current_bubble_ui = None
+        if req.source == self.current_speech_req.source:
+            self.speech_manager.dismiss()
+            self._awaken_speech_subsystem(req)
+            return
+
+        if req.priority > self.current_speech_req.priority:
+            self.speech_manager.dismiss()
+            self._awaken_speech_subsystem(req)
+            return
+
+        self._enqueue_speech(req)
+
+    def _enqueue_speech(self, req: SpeechRequest):
+        for i, existing in enumerate(self.speech_queue):
+            if existing.source == req.source:
+                self.speech_queue[i] = req
+                return
+        self.speech_queue.append(req)
+        self.speech_queue.sort(key=lambda x: (-x.priority, x.timestamp))
+
+    def _awaken_speech_subsystem(self, req: SpeechRequest):
+        self.current_speech_req = req
+        self.speech_manager.execute(req.text, req.duration)
+
+    def _on_speech_finished(self):
+        """接收完成播报的异步通知，驱动队列"""
+        self.current_speech_req = None
+        if self.speech_queue:
+            next_req = self.speech_queue.pop(0)
+            self._awaken_speech_subsystem(next_req)
+        else:
+            self._reset_move_timer()
+
+    def cancel_speech_request(self, source: str):
+        """定点清理指定来源的讲话请求，并打断正在播报的流"""
+        self.speech_queue = [r for r in self.speech_queue if r.source != source]
+        if self.current_speech_req and self.current_speech_req.source == source:
+            self.speech_manager.dismiss()
 
     def change_state_packet(self, packet: dict):
         if "animation" in packet:
@@ -130,7 +146,7 @@ class PetEngine:
 
     def _proc_state_speak(self, speak_config: dict):
         text_type = speak_config.get("text_type")
-        priority = speak_config.get("priority", BubblePriority.IDLE)
+        priority = speak_config.get("priority", SpeechPriority.IDLE)
         duration = speak_config.get("duration", self.config.get("bubble_duration_sec", 3))
         source = speak_config.get("source", "state_speech")
         
@@ -146,7 +162,7 @@ class PetEngine:
         except Exception as e:
             text = f"【读取未知异常】\n类型: {type(e).__name__}\n提示: {str(e)}\n路径: {file_path}"
             
-        self.handle_bubble_request(BubbleMsg(text=text, duration=duration, source=source, priority=priority))
+        self.handle_speech_request(SpeechRequest(text=text, duration=duration, source=source, priority=priority))
 
     def _on_pet_clicked(self):
         self.wait_timer.stop()
@@ -157,7 +173,7 @@ class PetEngine:
             "animation": "interact",
             "speak": {
                 "text_type": "interact",
-                "priority": BubblePriority.INTERACTIVE,
+                "priority": SpeechPriority.INTERACTIVE,
                 "source": "user_click",
                 "duration": self.config.get("bubble_duration_sec", 3)
             }
@@ -193,74 +209,6 @@ class PetEngine:
         else:
             self._stop_all_move()
 
-    def handle_bubble_request(self, msg: BubbleMsg):
-        if not self.current_bubble_ui:
-            self._render_bubble(msg)
-            return
-
-        if msg.source == self.current_bubble_msg.source:
-            self._force_close_current()
-            self._render_bubble(msg)
-            return
-
-        if msg.priority > self.current_bubble_msg.priority:
-            self._force_close_current()
-            self._render_bubble(msg)
-            return
-
-        self._enqueue_bubble(msg)
-
-    def _enqueue_bubble(self, msg: BubbleMsg):
-        for i, existing_msg in enumerate(self.bubble_queue):
-            if existing_msg.source == msg.source:
-                self.bubble_queue[i] = msg
-                return
-
-        self.bubble_queue.append(msg)
-        self.bubble_queue.sort(key=lambda x: (-x.priority, x.timestamp))
-
-    def _render_bubble(self, msg: BubbleMsg):
-        self.current_bubble_msg = msg
-        try:
-            self.current_bubble_ui = Bubble(msg.text, parent=self.pet_widget)
-            self.current_bubble_ui.destroyed.connect(self._process_next_bubble)
-            self.current_bubble_ui.update_position(self.pet_widget)
-            self.bubble_timer.start(msg.duration * 1000)
-        except Exception as e:
-            print(f"气泡渲染遇到冲突拦截: {e}")
-            self._force_close_current()
-            self._process_next_bubble()
-
-    def _on_bubble_timeout(self):
-        self.bubble_timer.stop()
-        if self.current_bubble_ui:
-            self.current_bubble_ui.close()
-            self.current_bubble_ui.deleteLater()
-
-    def _force_close_current(self):
-        self.bubble_timer.stop()
-        if self.current_bubble_ui:
-            try:
-                self.current_bubble_ui.destroyed.disconnect(self._process_next_bubble)
-            except TypeError:
-                pass
-            self.current_bubble_ui.close()
-            self.current_bubble_ui.deleteLater()
-
-            self.current_bubble_ui = None
-            self.current_bubble_msg = None
-
-    def _process_next_bubble(self):
-        self.current_bubble_ui = None
-        self.current_bubble_msg = None
-
-        if self.bubble_queue:
-            next_msg = self.bubble_queue.pop(0)
-            self._render_bubble(next_msg)
-        else:
-            # 气泡播放完毕后，交由状态恢复器来决定回 idle 还是继续 move
-            self._reset_move_timer()
-            
     def _on_drag_started(self):
         """当进入拖拽状态时，立即停止自主移动的所有计时器，防止后台位移覆盖拖拽"""
         self.wait_timer.stop()
@@ -268,32 +216,25 @@ class PetEngine:
         self._moving = False
 
     def _reset_move_timer(self):
-        """
-        行为状态恢复器，根据配置智能回归主状态
-        """
+        """行为状态恢复器，根据配置智能回归主状态"""
         self.wait_timer.stop()
         self.move_timer.stop()
         self._moving = False
 
-        # 如果关闭了移动，直接回归静止待机
         if not self.config.get("random_move"):
             self.change_state_packet({"animation": "idle"})
             return
 
         idle_sec = self.config.get("move_idle_sec")
         
-        # 当间隔设为 0 时，直接跨过待机，拉起下一轮走动循环
         if idle_sec <= 0:
             self._trigger_move_cycle()
         else:
-            # 只有大于 0 时，才允许进待机冷却队列
             self.change_state_packet({"animation": "idle"})
             self.wait_timer.start(idle_sec * 1000)
 
     def _stop_all_move(self):
-        """
-        统一拦截并清理位移控制。
-        """
+        """统一拦截并清理位移控制。"""
         self.wait_timer.stop()
         self.move_timer.stop()
         self._moving = False
@@ -352,7 +293,7 @@ class PetEngine:
     def stop(self):
         self.module_manager.stop_all()
         self._stop_all_move()
-        self._force_close_current()
+        self.speech_manager.dismiss()
         self.pet_widget.close()
         self.control_panel.close()
         self.tray_icon.hide()

@@ -22,18 +22,6 @@ class IdleBubbleModule(BaseModule):
         else:
             return random.randint(121, 180)
 
-    def start(self):
-        """开了就立即重置旧计时，并重新摇号启动新计时"""
-        self.cycle_timer.stop()
-        if self.config.get("idle_text"):
-            interval = self._get_weighted_random_sec() * 1000
-            self.cycle_timer.start(max(3000, interval))
-
-    def stop(self):
-        """关了就立即停止计时，同时强行销毁无聊说话的气泡"""
-        self.cycle_timer.stop()
-        self.api.close_bubble_by_source("idle_speech")
-
     def refresh(self):
         """根据布尔值决定开启或关闭释放"""
         if self.config.get("idle_text"):
@@ -62,3 +50,15 @@ class IdleBubbleModule(BaseModule):
         
         # 触发后重新启动下一轮随机摇号计时
         self.start()
+
+    def start(self):
+        """开了就立即重置旧计时，并重新摇号启动新计时"""
+        self.cycle_timer.stop()
+        if self.config.get("idle_text"):
+            interval = self._get_weighted_random_sec() * 1000
+            self.cycle_timer.start(max(3000, interval))
+
+    def stop(self):
+        """关了就立即停止计时，同时调用接口注销说话"""
+        self.cycle_timer.stop()
+        self.api.cancel_speech_request("idle_speech")
