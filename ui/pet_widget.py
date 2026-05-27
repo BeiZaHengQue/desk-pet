@@ -1,8 +1,11 @@
+import logging
+import time
 from PyQt5.QtWidgets import QLabel, QApplication
 from PyQt5.QtCore import Qt, pyqtSignal, QSize, QPoint
 from PyQt5.QtGui import QMovie, QIcon
-import time
 from utils.resource_manager import ResourceManager
+
+logger = logging.getLogger(__name__)
 
 class PetWidget(QLabel):
     geometry_changed = pyqtSignal()
@@ -30,6 +33,7 @@ class PetWidget(QLabel):
         
         # 启动默认场景
         self._protected_until = 0  # 高优先级动画保护截止时间戳（毫秒）
+        self._current_scene = None  # 追踪当前场景名，确保切换日志仅在变化时输出一次
         self.switch_scene("idle")
 
     def get_first_frame(self):
@@ -50,9 +54,15 @@ class PetWidget(QLabel):
         if current_time < self._protected_until and scene_name in ["idle", "move"]:
             return
 
+        if self._current_scene == scene_name and self._movie and self._movie.state() == QMovie.Running:
+            return
+
         gif_path = ResourceManager.get_host_gif(scene_name)
         if not gif_path:
             return
+
+        logger.info("动画切换 | [%s] 切换为 [%s] | 资源路径: %s", self._current_scene, scene_name, gif_path)
+        self._current_scene = scene_name
 
         if self._movie:
             self._movie.stop()
@@ -63,7 +73,7 @@ class PetWidget(QLabel):
         self._movie.jumpToFrame(0)
         self._base_size = self._movie.currentImage().size()
         self.set_scale(self.current_scale)
-        self._movie.start()  # 确保显式启动播放
+        self._movie.start()  # 显式启动播放
 
         # 如果设定了保护时长，更新截止时间戳
         if duration_ms > 0:
@@ -113,13 +123,18 @@ class PetWidget(QLabel):
         if self._is_dragging and event.buttons() == Qt.LeftButton:
             move_distance = (event.globalPos() - self._press_pos).manhattanLength()
             
-            # 判定为拖拽的瞬间，切换为 drag 动画
+            # 判定为拖拽的瞬间切换为 drag 动画
             if move_distance > QApplication.startDragDistance():
-                if not self._click_canceled: # 确保只在刚跨越阈值的瞬间切换一次
+                if not self._click_canceled:
                     self._click_canceled = True
+                    
+                    # 记录开始坐标
+                    logger.info("拖拽状态 | 开始拖拽 | 鼠标坐标=(%d, %d)", self._press_pos.x(), self._press_pos.y())
+                    
                     self.drag_started.emit()
-                    self.switch_scene("drag") # 瞬间换成拖拽形象
+                    self.switch_scene("drag")
 
+            # 更新坐标
             self.move(event.globalPos() - self._drag_offset)
             event.accept()
 
@@ -129,10 +144,14 @@ class PetWidget(QLabel):
 
             duration = time.time() - self._press_time
             if duration <= 0.3 and not self._click_canceled:
-                # 给点击动作 1s 的绝对保护期
+                # 时间锁
                 self.switch_scene("click", duration_ms=1000) 
                 self.clicked.emit()
             else:
+                # 记录终点坐标
+                if self._click_canceled:
+                    logger.info("拖拽状态 | 结束拖拽 | 鼠标坐标=(%d, %d)", event.globalPos().x(), event.globalPos().y())
+                
                 # 拖拽结束，抛出结束信号
                 self.drag_finished.emit()
                 

@@ -41,31 +41,17 @@ BeiZi-DeskPet/
 │   │   └── fallback/                # Backup GIF assets for missing resources
 │   └── soul/                        # Desktop pet media resources
 │       └── text/                    # Desktop pet text database
-│           ├── idle_sentences.txt         # Idle dialogue lines (one sentence per line)
-│           └── interaction_sentences.txt  # Interaction dialogue lines (one sentence per line)
+│           ├── idle.txt         # Idle dialogue lines (one sentence per line)
+│           └── interact.txt  # Interaction dialogue lines (one sentence per line)
+├── config/
 │
-├── core/                            # Core logic control layer
-│   ├── config_manager.py            # Configuration manager (handles local JSON read/write and rollback)
-│   ├── module_manager.py            # Lifecycle manager for extension modules
-│   ├── pet_api.py                   # External API interface for system detection and random dialogue retrieval
-│   ├── pet_engine.py                # Main engine controller (animation switching, movement state machine, tray and bubble scheduling)
-│   └── types.py                     # Global data structure definitions
+├── core/                           
 │
-├── modules/                         # Extension modules
-│   ├── __init__.py                  # BaseModule definition
-│   ├── idle_bubble.py               # Idle dialogue trigger module
-│   └── time_notify.py               # Time detection and hourly/half-hour notification module
+├── modules/                         
+
+├── ui/                                           
 │
-├── ui/                              # UI layer
-│   ├── bubble.py                    # Borderless speech bubble UI (dynamic width calculation and screen-edge rebound)
-│   ├── control_panel.py             # Desktop pet control panel UI (slider and input synchronization)
-│   └── pet_widget.py                # Main desktop pet window UI (transparent borderless window, GIF rendering, drag & click handling)
-│
-├── utils/                           # Utility toolkit
-│   ├── __init__.py                  # Utility package initializer
-│   ├── paths.py                     # Path resolution (compatible with development and packaged environments)
-│   └── resource_manager.py          # Resource scanner and file filter (scans valid GIFs and text resource paths)
-│
-├── config.json                      # Auto-generated configuration file after runtime
-└── main.py                          # Program entry point
+├── utils/                               
+│                
+└── main.py                         
 ```

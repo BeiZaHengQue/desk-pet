@@ -11,6 +11,9 @@
 # 配置文件
 config/
 
+# 日志文件
+logs/
+
 # PyInstaller
 *.spec
 dist/

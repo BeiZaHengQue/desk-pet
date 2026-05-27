@@ -1,7 +1,10 @@
 import sys
 from PyQt5.QtWidgets import QApplication
-from core.pet_engine import PetEngine
 
+from utils.logging_setup import setup_logging
+setup_logging()
+
+from core.pet_engine import PetEngine
 
 def main():
     app = QApplication(sys.argv)

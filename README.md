@@ -37,31 +37,16 @@ BeiZi-DeskPet/
 │   │   └── fallback/                # 存放备用/资源缺失时恢复的 GIF 素材
 │   └── soul/                        # 桌宠媒体资源文件夹
 │       └── text/                    # 桌宠文本库
-│           ├── idle_sentences.txt          # 待机无聊说话文案（一行一句）
-│           └── interaction_sentences.txt   # 点击互动说话文案（一行一句）
+│           ├── idle.txt          # 待机无聊说话文案（一行一句）
+│           └── interact.txt   # 点击互动说话文案（一行一句）
+├── config/
 │
-├── core/                            # 核心逻辑控制层
-│   ├── config_manager.py            # 配置管理类（处理本地 JSON 读写与回滚）
-│   ├── module_manager.py            # 扩展功能模块生命周期管理器
-│   ├── pet_api.py                   # 核心中枢向外暴露的系统检测及词库随机抽取接口
-│   ├── pet_engine.py                # 引擎主控制中枢（动作切换、移动状态机、托盘及气泡排队调度）
-│   └── types.py                     # 全局数据结构定义
+├── core/                           
 │
-├── modules/                         # 扩展模块
-│   ├── __init__.py                  # 模块基类 BaseModule 定义
-│   ├── idle_bubble.py               # 待机无聊说话触发模块
-│   └── time_notify.py               # 时间检测与整点/半点报时触发模块 
+├── modules/ 
+|                
+├── ui/                                           
 │
-├── ui/                              # UI层
-│   ├── bubble.py                    # 无边框气泡提示框 UI（动态算宽、触边反弹
-│   ├── control_panel.py             # 桌宠控制面板设置界面 UI（滑块、输入框数值绑定）
-│   └── pet_widget.py                # 桌宠本体窗口 UI（透明无边框、GIF渲染、处理鼠标拖拽与点击）
-│
-├── utils/                           # 工具集
-│   ├── __init__.py                  # 工具包初始化文件
-│   ├── paths.py                     # 路径解析（兼容本地开发环境与打包后的绝对路径）
-│   └── resource_manager.py          # 资源文件扫描与文件过滤器（扫描合法 GIF 和文案路径）
-│
-├── config.json                      # 运行后自动生成的配置文件 
-└── main.py                          # 程序唯一启动入口
-```
+├── utils/                               
+│                
+└── main.py  
